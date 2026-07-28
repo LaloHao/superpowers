@@ -154,6 +154,61 @@ before execution begins, not one interrupt per discovery mid-plan. If the
 scan is clean, proceed without comment. The review loop remains the net for
 conflicts that only emerge from implementation.
 
+## Wave Dispatch
+
+Every task declares `Depends on: Task N, Task M` or `Depends on: None`.
+Use this — not inference from prose — to compute which tasks can dispatch
+together.
+
+**Compute the ready set:** tasks not yet marked complete in the ledger
+whose every `Depends on` entry IS marked complete. At the start, this is
+every task listing `None`.
+
+**Form a wave:** take up to **4** ready tasks (the concurrency cap). If
+more than 4 are ready, the rest wait for the next wave — do not exceed the
+cap to clear a backlog faster.
+
+**Dispatch the wave:**
+
+- **Wave size 1:** unchanged from the rest of this skill — dispatch
+  directly in the plan's working tree, no worktree overhead, one Task Loop
+  iteration (below) as written.
+- **Wave size 2+, `Workflow` tool available (Claude Code):** delegate the
+  wave to a `Workflow` script with `isolation: 'worktree'` that
+  `pipeline()`s each task's implementer dispatch → task review → fix loop
+  through its own isolated worktree, and returns each task's outcome
+  (DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED, commit range,
+  review verdict). Interpret each returned outcome exactly as Handle the
+  Report and Review the Task below describe — the Workflow run is a
+  delivery mechanism for the same per-task loop, not a different process.
+- **Wave size 2+, no `Workflow` tool:** for each task in the wave, run
+  `scripts/task-worktree add PLAN_FILE N` (from this skill's directory) to
+  create `<sdd-workspace>/tasks/task-N` on branch
+  `sdd/<plan-slug>/task-N`, branched from the plan branch's current HEAD.
+  Dispatch that task's implementer with its working directory set to that
+  worktree — everything else in the Task Loop below (task brief, report
+  file, review, fix loop) proceeds per task exactly as written, just
+  rooted in the task's own worktree instead of the plan's working tree.
+
+**Merge on completion, not on wave completion:** the instant a task's
+review clears (including any fix-loop rounds), merge it into the plan
+branch immediately:
+
+```bash
+git -C <plan-worktree-path> merge --no-ff sdd/<plan-slug>/task-<N>
+```
+
+then `scripts/task-worktree remove PLAN_FILE N` to delete the task
+worktree and branch, then append the ledger entry as usual. Do this one
+task at a time, in the order tasks finish review — do not wait for the
+rest of the wave. A merge conflict is a signal the `Depends on` graph
+missed something real: resolve it if trivial, otherwise stop and ask your
+human partner which task's changes should win.
+
+**Open the next wave:** once every task in the current wave is merged,
+recompute the ready set (a task blocked only on now-complete tasks becomes
+ready) and repeat.
+
 ## Model Selection
 
 Use the least powerful model that can handle each role to conserve cost and increase speed.
@@ -227,7 +282,10 @@ and fix-round diffs need it.
   a pointer to that ledger entry in the dispatch.
 - Record the implementer's agent identity from the dispatch result —
   fix-loop rounds 1-3 resume this agent.
-- Never dispatch multiple implementation subagents in parallel (conflicts).
+- Multiple implementers may run at once only as part of the same wave (see
+  Wave Dispatch below), each isolated in its own task worktree. Never
+  dispatch two implementers into the same working tree at once — that is
+  still a conflict.
 
 Template: [implementer-prompt.md](implementer-prompt.md)
 
@@ -377,8 +435,9 @@ a silent discard is forbidden.
 ### 5. Complete the task
 
 When the review comes back clean — or every open finding is parked with a
-ruling at the cap — append the completion line to the ledger in the same
-message as your other bookkeeping:
+ruling at the cap — merge the task per Wave Dispatch's "Merge on
+completion" (if it ran in its own worktree) and append the completion line
+to the ledger in the same message as your other bookkeeping:
 
 - `Task <N>: complete (commits <base7>..<head7>, review clean)`
 - `Task <N>: complete (commits <base7>..<head7>, <K> parked)` after a
@@ -386,7 +445,8 @@ message as your other bookkeeping:
 
 Then mark the todo complete and move on. Never move to the next task while
 the review has open Critical/Important issues that are neither fixed nor
-parked-with-ruling at the cap.
+parked-with-ruling at the cap. Once every task in the current wave is
+merged, return to Wave Dispatch to open the next wave.
 
 ## Final Review
 
