@@ -78,6 +78,7 @@ tests=(
     "test-sdd-workspace.sh"
     "test-subagent-driven-development.sh"
     "test-writing-plans-parallel.sh"
+    "test-brainstorming-parallel.sh"
 )
 
 # Integration tests (slow, full execution)

@@ -64,7 +64,19 @@ digraph brainstorming {
 
 **Understanding the idea:**
 
-- Check out the current project state first (files, docs, recent commits)
+- Check out the current project state first (files, docs, recent commits).
+  List the concrete items you need to look at — e.g. "the module that
+  would host this", "an existing similar feature", "test conventions in
+  this area", "relevant prior specs/decisions". This is independent of how
+  the idea itself is scoped: even a single-feature request routinely
+  requires understanding several existing parts of the system. Decide
+  mechanically, not by feel:
+  - **2+ items that live in different parts of the codebase and don't
+    depend on each other's findings** → dispatch one Explore (or
+    general-purpose) subagent per item, all in the same message
+    (parallel), then synthesize before asking clarifying questions.
+  - **collapses to 1 item** (or one item needs another's result first) →
+    investigate directly, no subagent dispatch.
 - Before asking detailed questions, assess scope: if the request describes multiple independent subsystems (e.g., "build a platform with chat, file storage, billing, and analytics"), flag this immediately. Don't spend questions refining details of a project that needs to be decomposed first.
 - If the project is too large for a single spec, help the user decompose into sub-projects: what are the independent pieces, how do they relate, what order should they be built? Then brainstorm the first sub-project through the normal design flow. Each sub-project gets its own spec → plan → implementation cycle.
 - For appropriately-scoped projects, ask questions one at a time to refine the idea
