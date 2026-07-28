@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Create or remove a per-task git worktree for one wave of parallel
+# implementers in subagent-driven-development. Each task gets its own
+# worktree so parallel implementers never touch the same working tree.
+#
+# Usage:
+#   task-worktree add PLAN_FILE TASK_NUMBER [BASE_REF]
+#   task-worktree remove PLAN_FILE TASK_NUMBER
+#
+# add:    creates <sdd-workspace>/tasks/task-<N> on branch
+#         sdd/<plan-slug>/task-<N>, branched from BASE_REF (default HEAD).
+#         Prints the absolute worktree path.
+# remove: removes the worktree and deletes its branch.
+#         Prints "removed <path>".
+set -euo pipefail
+
+usage() {
+  echo "usage: task-worktree add PLAN_FILE TASK_NUMBER [BASE_REF]" >&2
+  echo "       task-worktree remove PLAN_FILE TASK_NUMBER" >&2
+}
+
+if [ $# -lt 1 ]; then
+  usage
+  exit 2
+fi
+
+cmd=$1
+shift
+
+case "$cmd" in
+  add)
+    if [ $# -lt 2 ] || [ $# -gt 3 ]; then usage; exit 2; fi
+    plan=$1
+    n=$2
+    base=${3:-HEAD}
+    ;;
+  remove)
+    if [ $# -ne 2 ]; then usage; exit 2; fi
+    plan=$1
+    n=$2
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
+
+[ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+workspace=$("$script_dir/sdd-workspace" "$plan")
+slug=$(basename "$plan" .md)
+wt_dir="$workspace/tasks/task-$n"
+branch="sdd/$slug/task-$n"
+
+if [ "$cmd" = add ]; then
+  git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE_REF: $base" >&2; exit 2; }
+  if [ -d "$wt_dir" ] || git rev-parse --verify --quiet "$branch" >/dev/null; then
+    echo "task worktree already exists for task ${n}: ${wt_dir} (branch ${branch})" >&2
+    exit 3
+  fi
+  mkdir -p "$workspace/tasks"
+  git worktree add -q "$wt_dir" -b "$branch" "$base"
+  echo "$wt_dir"
+else
+  if [ ! -d "$wt_dir" ]; then
+    echo "no task worktree for task ${n}: ${wt_dir}" >&2
+    exit 3
+  fi
+  git worktree remove --force "$wt_dir"
+  git worktree prune
+  git branch -D "$branch" >/dev/null 2>&1 || true
+  echo "removed $wt_dir"
+fi
