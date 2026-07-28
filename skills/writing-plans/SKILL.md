@@ -26,6 +26,20 @@ If the spec covers multiple independent subsystems, it should have been broken i
 
 Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
 
+**Parallel exploration:** before mapping file structure, list the concrete
+items you need to understand first — e.g. "how module X is structured
+today", "what pattern similar files follow", "what interfaces subsystem Y
+exposes that this plan will consume". This is a mechanical count, not a
+judgment call:
+
+- If the list has **2+ items that live in different parts of the codebase
+  and don't depend on each other's findings**, dispatch one Explore (or
+  general-purpose) subagent per item, all in the same message (parallel),
+  then synthesize before deciding the file structure.
+- If the list **collapses to 1 item** — or investigating one item requires
+  the result of another — investigate directly. Coordinating a subagent
+  for a single thing to look at isn't worth the overhead.
+
 - Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
 - You reason best about code you can hold in context at once, and your edits are more reliable when files are focused. Prefer smaller, focused files over large ones that do too much.
 - Files that change together should live together. Split by responsibility, not by technical layer.
@@ -41,6 +55,15 @@ configuration, scaffolding, and documentation steps into the task whose
 deliverable needs them; split only where a reviewer could meaningfully
 reject one task while approving its neighbor. Each task ends with an
 independently testable deliverable.
+
+## Task Dependencies
+
+Every task declares `**Depends on:** Task N, Task M` (or `None`) directly
+under its heading. This is not documentation flavor — `subagent-driven-development`
+reads this field to compute which tasks can dispatch together in a
+parallel wave. Keep it consistent with the task's **Interfaces** block: if
+Task 5 Consumes something Task 2 Produces, Task 5 must list `Depends on:
+Task 2`. A task with no unmet dependency in the plan lists `None`.
 
 ## Bite-Sized Task Granularity
 
@@ -80,6 +103,8 @@ include this section.]
 
 ````markdown
 ### Task N: [Component Name]
+
+**Depends on:** Task 2, Task 3 (or `None` if this task can start immediately)
 
 **Files:**
 - Create: `exact/path/to/file.py`
@@ -144,6 +169,8 @@ After writing the complete plan, look at the spec with fresh eyes and check the 
 **2. Placeholder scan:** Search your plan for red flags — any of the patterns from the "No Placeholders" section above. Fix them.
 
 **3. Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
+
+**4. Depends-on consistency:** Does every task have a `Depends on` field? Does it match what the task's Interfaces block Consumes from earlier tasks — no task lists `None` while its Interfaces block consumes something another task Produces, and no task lists a dependency it doesn't actually need.
 
 If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
 
