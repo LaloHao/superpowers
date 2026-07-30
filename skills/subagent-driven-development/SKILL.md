@@ -192,6 +192,13 @@ cap to clear a backlog faster.
   file, review, fix loop) proceeds per task exactly as written, just
   rooted in the task's own worktree instead of the plan's working tree.
 
+**Location discipline matters most here.** Wave size 2+ means multiple
+task worktrees are active at once — exactly the situation where an
+implementer's shell losing track of its working directory is most likely
+and most costly, since a stray commit could land on another task's branch
+or the plan branch instead of its own. Do not skip Handle the Report's
+DONE/DONE_WITH_CONCERNS location verification for any task in a wave.
+
 **Merge on completion, not on wave completion:** the instant a task's
 review clears (including any fix-loop rounds), merge it into the plan
 branch immediately:
@@ -318,7 +325,7 @@ before dispatching the implementer — never `HEAD~1`, which silently drops
 all but the last commit of a multi-commit task), then dispatch the task
 reviewer with the printed path.
 
-**DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
+**DONE_WITH_CONCERNS:** Run the same location verification as DONE above before proceeding — a claimed commit is a claimed commit regardless of status, and the wrong-directory failure doesn't care whether the implementer also flagged doubts. The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
 
 **NEEDS_CONTEXT:** The implementer needs information that wasn't provided. Provide the missing context and re-dispatch.
 
