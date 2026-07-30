@@ -295,7 +295,28 @@ Template: [implementer-prompt.md](implementer-prompt.md)
 
 Implementer subagents report one of four statuses. Handle each appropriately:
 
-**DONE:** Generate the review package (`scripts/review-package PLAN_FILE BASE HEAD`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
+**DONE:** Before generating the review package, verify the reported commit
+actually landed on the task's own branch: run
+`git -C <task-worktree> log --oneline -3` and `git -C <task-worktree> status --short`
+and confirm the reported SHA is there and the working tree is clean. Do not
+skip this — an implementer whose shell silently reset to the parent
+directory between tool calls will report a plausible-looking DONE while its
+commit sits on the wrong branch (or its files sit uncommitted in the parent
+worktree); `review-package` on a branch with no new commits produces an
+empty, misleadingly-clean diff instead of an error. If verification fails,
+this is not a review-loop finding — fix the location yourself (e.g.
+`git -C <task-worktree> cherry-pick <sha>`, or re-commit matching files
+found stray in the parent worktree) or, if anything landed on the parent
+session branch, resolve it there before continuing (never `git rebase`,
+`git revert`, or `git reset --hard` your own session branch without
+confirming with your human partner first — a plain `git reset <sha>`
+without `--hard` is usually sufficient when the working tree already
+matches). Then generate the review package
+(`scripts/review-package PLAN_FILE BASE HEAD`, from this skill's directory —
+it prints the unique file path it wrote; BASE is the commit you recorded
+before dispatching the implementer — never `HEAD~1`, which silently drops
+all but the last commit of a multi-commit task), then dispatch the task
+reviewer with the printed path.
 
 **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
 

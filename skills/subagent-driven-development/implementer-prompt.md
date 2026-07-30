@@ -41,6 +41,30 @@ Subagent (general-purpose):
 
     Work from: [directory]
 
+    ## Working Directory Discipline
+
+    This is a real, isolated git worktree on its own branch. In some
+    environments the shell's working directory does NOT persist between
+    separate tool calls — each command can silently restart in the
+    session's original directory even after you `cd`. Assume this is true
+    here unless you've verified otherwise. Concretely:
+
+    - Prefix EVERY shell command that touches git, the filesystem, or a
+      package manager with `cd [directory] && `, in the same call — never
+      rely on a `cd` from a previous call still being in effect.
+    - Before your FIRST commit, run
+      `cd [directory] && git rev-parse --abbrev-ref HEAD` and confirm it
+      prints your assigned branch. If it prints anything else, STOP —
+      do not commit — and report back with BLOCKED describing what you
+      saw instead.
+    - If you ever discover you created a commit, file, or edit outside
+      [directory] (e.g. in the parent worktree), do NOT run `git rebase`,
+      `git revert`, `git reset`, or any command that touches a branch
+      other than your own assigned one to fix it — that branch is shared
+      state you do not own. Stop and report back (BLOCKED or
+      DONE_WITH_CONCERNS) with exactly what happened; the controller will
+      fix it.
+
     **While you work:** If you encounter something unexpected or unclear, **ask questions**.
     It's always OK to pause and clarify. Don't guess or make assumptions.
 
