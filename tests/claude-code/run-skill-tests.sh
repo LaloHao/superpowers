@@ -84,6 +84,7 @@ tests=(
     "test-time-log.sh"
     "test-writing-plans-worklog.sh"
     "test-sdd-worklog.sh"
+    "test-brainstorming-worklog.sh"
 )
 
 # Integration tests (slow, full execution)
