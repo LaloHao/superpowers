@@ -154,6 +154,25 @@ EOF
         echo "    before=$lines_before after=$lines_after"
     fi
 
+    # --- restarted phase: summary uses the most recent start/end window ---
+    local restart_file="$repo/.superpowers/worklog/topic-restart.md"
+    cat > "$restart_file" <<'EOF'
+# time-log — topic: topic-restart — jira: unknown
+start p1 1000
+end p1 1100
+start p1 2000
+end p1 2100
+EOF
+    local restart_out restart_active
+    restart_out="$(cd "$repo" && "$TIME_LOG" summary topic-restart p1)"
+    restart_active="$(printf '%s\n' "$restart_out" | field ACTIVE_SECONDS)"
+    if [[ "$restart_active" == "100" ]]; then
+        pass "summary uses the most recent start for a restarted phase"
+    else
+        fail "summary uses the most recent start for a restarted phase"
+        echo "    got ACTIVE_SECONDS=$restart_active"
+    fi
+
     # --- set-jira ---
     (cd "$repo" && "$TIME_LOG" set-jira topic-math PROJ-123 >/dev/null)
     local jira_field

@@ -82,7 +82,7 @@ phase_pause_state() {
 print_summary() {
   local file=$1 phase=$2
   local start_t end_t paused pause_t ev t active
-  start_t=$(awk -v p="$phase" '$1=="start" && $2==p {print $3; exit}' "$file")
+  start_t=$(awk -v p="$phase" '$1=="start" && $2==p {t=$3} END{print t+0}' "$file")
   end_t=$(awk -v p="$phase" '$1=="end" && $2==p {t=$3} END{print t+0}' "$file")
   [ "$end_t" != "0" ] || end_t=$(date +%s)
   paused=0
