@@ -6,11 +6,18 @@
 #
 # Usage:
 #   time-log start TOPIC PHASE
-#   time-log pause TOPIC
-#   time-log resume TOPIC
-#   time-log end TOPIC
+#   time-log pause TOPIC [PHASE]
+#   time-log resume TOPIC [PHASE]
+#   time-log end TOPIC [PHASE]
 #   time-log summary TOPIC PHASE
 #   time-log set-jira TOPIC VALUE
+#
+# PHASE is optional on pause/resume/end when exactly one phase is
+# currently open for TOPIC — it is derived automatically. If more than
+# one phase is open at once (e.g. parallel wave dispatch in
+# subagent-driven-development, which can have several task-N phases
+# open simultaneously), PHASE must be passed explicitly or the command
+# exits 3 with an "ambiguous" error rather than silently guessing.
 #
 # File: <repo-root>/.superpowers/worklog/<TOPIC>.md
 # Line 1: "# time-log — topic: <TOPIC> — jira: <ISSUE-KEY|none|unknown>"
@@ -26,9 +33,9 @@ set -euo pipefail
 
 usage() {
   echo "usage: time-log start TOPIC PHASE" >&2
-  echo "       time-log pause TOPIC" >&2
-  echo "       time-log resume TOPIC" >&2
-  echo "       time-log end TOPIC" >&2
+  echo "       time-log pause TOPIC [PHASE]" >&2
+  echo "       time-log resume TOPIC [PHASE]" >&2
+  echo "       time-log end TOPIC [PHASE]" >&2
   echo "       time-log summary TOPIC PHASE" >&2
   echo "       time-log set-jira TOPIC VALUE" >&2
 }
@@ -79,6 +86,41 @@ phase_pause_state() {
   ' "$file"
 }
 
+resolve_phase() {
+  # Resolve which phase pause/resume/end should act on.
+  # $1 = file, $2 = requested phase (may be empty)
+  local file=$1 requested=$2
+  local -a open=()
+  while IFS= read -r p; do
+    [ -n "$p" ] && open+=("$p")
+  done < <(open_phases "$file")
+
+  if [ -n "$requested" ]; then
+    local p
+    for p in "${open[@]}"; do
+      [ "$p" = "$requested" ] && { echo "$requested"; return; }
+    done
+    echo "phase not open: $requested" >&2
+    exit 3
+  fi
+
+  case "${#open[@]}" in
+    0)
+      echo "no phase currently open for topic: $topic" >&2
+      exit 3
+      ;;
+    1)
+      echo "${open[0]}"
+      ;;
+    *)
+      local joined
+      joined=$(IFS=, ; echo "${open[*]}")
+      echo "multiple phases open ($joined) — pass PHASE explicitly" >&2
+      exit 3
+      ;;
+  esac
+}
+
 print_summary() {
   local file=$1 phase=$2
   local start_t end_t paused pause_t ev t active
@@ -122,32 +164,29 @@ case "$cmd" in
     echo "start $phase $(date +%s)" >> "$file"
     ;;
   pause)
-    [ $# -eq 1 ] || { usage; exit 2; }
-    topic=$1
+    [ $# -eq 1 ] || [ $# -eq 2 ] || { usage; exit 2; }
+    topic=$1; requested=${2:-}
     file=$(worklog_file "$topic")
     [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
-    phase=$(open_phases "$file" | head -n1)
-    [ -n "$phase" ] || { echo "no phase currently open for topic: $topic" >&2; exit 3; }
+    phase=$(resolve_phase "$file" "$requested")
     [ "$(phase_pause_state "$file" "$phase")" = "running" ] || { echo "phase already paused: $phase" >&2; exit 3; }
     echo "pause $phase $(date +%s)" >> "$file"
     ;;
   resume)
-    [ $# -eq 1 ] || { usage; exit 2; }
-    topic=$1
+    [ $# -eq 1 ] || [ $# -eq 2 ] || { usage; exit 2; }
+    topic=$1; requested=${2:-}
     file=$(worklog_file "$topic")
     [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
-    phase=$(open_phases "$file" | head -n1)
-    [ -n "$phase" ] || { echo "no phase currently open for topic: $topic" >&2; exit 3; }
+    phase=$(resolve_phase "$file" "$requested")
     [ "$(phase_pause_state "$file" "$phase")" = "paused" ] || { echo "phase is not paused: $phase" >&2; exit 3; }
     echo "resume $phase $(date +%s)" >> "$file"
     ;;
   end)
-    [ $# -eq 1 ] || { usage; exit 2; }
-    topic=$1
+    [ $# -eq 1 ] || [ $# -eq 2 ] || { usage; exit 2; }
+    topic=$1; requested=${2:-}
     file=$(worklog_file "$topic")
     [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
-    phase=$(open_phases "$file" | head -n1)
-    [ -n "$phase" ] || { echo "no phase currently open for topic: $topic" >&2; exit 3; }
+    phase=$(resolve_phase "$file" "$requested")
     [ "$(phase_pause_state "$file" "$phase")" = "running" ] || { echo "phase is paused, resume before ending: $phase" >&2; exit 3; }
     echo "end $phase $(date +%s)" >> "$file"
     print_summary "$file" "$phase"

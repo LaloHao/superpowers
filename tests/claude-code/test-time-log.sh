@@ -188,6 +188,38 @@ EOF
     (cd "$repo" && "$TIME_LOG" set-jira topic-does-not-exist PROJ-999 >/dev/null 2>&1) || rc=$?
     [[ "$rc" -eq 3 ]] && pass "set-jira on a nonexistent topic errors with exit 3" || { fail "set-jira on a nonexistent topic errors with exit 3"; echo "    exit: $rc"; }
 
+    # --- multiple open phases: PHASE arg required, and targets only the named phase ---
+    (cd "$repo" && "$TIME_LOG" start topic-x task-a >/dev/null)
+    (cd "$repo" && "$TIME_LOG" start topic-x task-b >/dev/null)
+
+    rc=0
+    (cd "$repo" && "$TIME_LOG" pause topic-x >/dev/null 2>&1) || rc=$?
+    [[ "$rc" -eq 3 ]] && pass "pause with multiple phases open and no PHASE errors with exit 3" || { fail "pause with multiple phases open and no PHASE errors with exit 3"; echo "    exit: $rc"; }
+
+    rc=0
+    (cd "$repo" && "$TIME_LOG" pause topic-x nonexistent-phase >/dev/null 2>&1) || rc=$?
+    [[ "$rc" -eq 3 ]] && pass "pause with an unopened PHASE errors with exit 3" || { fail "pause with an unopened PHASE errors with exit 3"; echo "    exit: $rc"; }
+
+    (cd "$repo" && "$TIME_LOG" pause topic-x task-a >/dev/null)
+    # task-b was never paused; if pausing task-a left task-b alone, then
+    # "resume topic-x task-b" must fail ("phase is not paused"), not succeed.
+    rc=0
+    (cd "$repo" && "$TIME_LOG" resume topic-x task-b >/dev/null 2>&1) || rc=$?
+    [[ "$rc" -eq 3 ]] && pass "pause of task-a with explicit PHASE leaves task-b untouched" || { fail "pause of task-a leaves task-b untouched"; echo "    exit: $rc"; }
+    (cd "$repo" && "$TIME_LOG" resume topic-x task-a >/dev/null)
+
+    rc=0
+    (cd "$repo" && "$TIME_LOG" end topic-x task-a >/dev/null 2>&1) || rc=$?
+    [[ "$rc" -eq 0 ]] && pass "end with explicit PHASE ends only that phase" || { fail "end with explicit PHASE ends only that phase"; echo "    exit: $rc"; }
+
+    rc=0
+    (cd "$repo" && "$TIME_LOG" summary topic-x task-b >/dev/null 2>&1) || rc=$?
+    [[ "$rc" -eq 0 ]] && pass "task-b remains open (summary works) after ending task-a" || { fail "task-b remains open after ending task-a"; echo "    exit: $rc"; }
+
+    rc=0
+    (cd "$repo" && "$TIME_LOG" end topic-x task-b >/dev/null 2>&1) || rc=$?
+    [[ "$rc" -eq 0 ]] && pass "task-b can still be ended explicitly afterward" || { fail "task-b can still be ended explicitly afterward"; echo "    exit: $rc"; }
+
     # --- two topics resolve to two distinct files ---
     if [[ -f "$repo/.superpowers/worklog/topic-a.md" && -f "$repo/.superpowers/worklog/topic-b.md" ]]; then
         pass "two topics resolve to two distinct worklog files"

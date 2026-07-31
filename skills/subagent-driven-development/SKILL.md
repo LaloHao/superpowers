@@ -167,12 +167,19 @@ record BASE for task N (Task Loop, step 1). This skill's "continuous
 execution" principle means routine dispatch/review/fix-loop activity is
 never a wait point — but relaying an implementer's question to your human
 partner, or a plan-vs-review conflict that needs their decision, are real
-waits: run `scripts/time-log pause <topic>` immediately before either,
-and `scripts/time-log resume <topic>` immediately after their reply.
+waits: run `scripts/time-log pause <topic> task-N` immediately before
+either, and `scripts/time-log resume <topic> task-N` immediately after
+their reply.
 
-Run `scripts/time-log end <topic>` when task N is marked complete in the
-ledger (Task Loop, step 5), before appending the ledger line. This prints
-the task's active duration and its `JIRA:` field.
+Because Wave Dispatch (below) can have several task-N phases open at
+once, always pass the phase explicitly (`task-N`) on every `pause`,
+`resume`, and `end` call in this section — omitting it is only safe when
+at most one phase is ever open at a time, which is true for
+brainstorming and writing-plans but not here.
+
+Run `scripts/time-log end <topic> task-N` when task N is marked complete
+in the ledger (Task Loop, step 5), before appending the ledger line.
+This prints the task's active duration and its `JIRA:` field.
 
 - If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
   issue key (e.g. PROJ-123)." A "no" runs
@@ -192,10 +199,14 @@ the task's active duration and its `JIRA:` field.
   MCP connector isn't available, say so and continue.
 
 Run the same `start`/pause-resume/`end`/publish cycle once more around
-the whole-branch final review, using phase `final-review`: `start` right
-before dispatching the final code reviewer, `end` right after the final
-review is clean and any fixes are merged (before deleting the plan's
-workspace), with `commentBody="Final review: <topic>"`.
+the whole-branch final review, using phase `final-review`:
+`scripts/time-log start <topic> final-review` right before dispatching
+the final code reviewer; `scripts/time-log pause <topic> final-review`
+and `scripts/time-log resume <topic> final-review` around any wait on
+your human partner; `scripts/time-log end <topic> final-review` right
+after the final review is clean and any fixes are merged (before
+deleting the plan's workspace), with `commentBody="Final review:
+<topic>"`.
 
 ## Wave Dispatch
 
