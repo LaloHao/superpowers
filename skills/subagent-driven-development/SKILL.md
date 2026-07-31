@@ -156,6 +156,46 @@ before execution begins, not one interrupt per discovery mid-plan. If the
 scan is clean, proceed without comment. The review loop remains the net for
 conflicts that only emerge from implementation.
 
+## Worklog Timing
+
+Derive `<topic>` from the plan filename (the slug between the date and
+the rest, e.g. `2026-08-03-my-feature` from
+`docs/superpowers/plans/2026-08-03-my-feature.md` — the same slug
+brainstorming and writing-plans already used for this topic's spec and
+plan). Run `scripts/time-log start <topic> task-N` at the same point you
+record BASE for task N (Task Loop, step 1). This skill's "continuous
+execution" principle means routine dispatch/review/fix-loop activity is
+never a wait point — but relaying an implementer's question to your human
+partner, or a plan-vs-review conflict that needs their decision, are real
+waits: run `scripts/time-log pause <topic>` immediately before either,
+and `scripts/time-log resume <topic>` immediately after their reply.
+
+Run `scripts/time-log end <topic>` when task N is marked complete in the
+ledger (Task Loop, step 5), before appending the ledger line. This prints
+the task's active duration and its `JIRA:` field.
+
+- If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
+  issue key (e.g. PROJ-123)." A "no" runs
+  `scripts/time-log set-jira <topic> none` and skips the rest of this
+  flow — for the rest of this plan (including the final review below),
+  no further prompt or publish offer.
+- If `JIRA: none`: skip straight to the ledger bookkeeping — no summary
+  prompt, no publish offer.
+- Otherwise (an issue key): show the active duration (`ACTIVE_HUMAN`) and
+  ask whether to log it to Jira. On yes: resolve `cloudId` via
+  `getAccessibleAtlassianResources` if not already resolved this
+  conversation (ask which site if more than one), then call
+  `addWorklogToJiraIssue` with that `cloudId`, `issueIdOrKey=<the
+  issue>`, `timeSpent=<ACTIVE_HUMAN>`, `started=<STARTED_ISO>`, and
+  `commentBody="Task N: <task title>"`. Report the result. If the Jira
+  MCP connector isn't available, say so and continue.
+
+Run the same `start`/pause-resume/`end`/publish cycle once more around
+the whole-branch final review, using phase `final-review`: `start` right
+before dispatching the final code reviewer, `end` right after the final
+review is clean and any fixes are merged (before deleting the plan's
+workspace), with `commentBody="Final review: <topic>"`.
+
 ## Wave Dispatch
 
 Every task declares `Depends on: Task N, Task M` or `Depends on: None`.
