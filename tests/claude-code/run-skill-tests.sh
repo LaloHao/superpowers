@@ -81,6 +81,7 @@ tests=(
     "test-writing-plans-parallel.sh"
     "test-brainstorming-parallel.sh"
     "test-sdd-parallel-waves.sh"
+    "test-time-log.sh"
 )
 
 # Integration tests (slow, full execution)

@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# Track active work time per phase for a topic, excluding time paused
+# (e.g. while waiting on the human partner), so brainstorming,
+# writing-plans, and subagent-driven-development can report and optionally
+# publish real elapsed time to a Jira worklog.
+#
+# Usage:
+#   time-log start TOPIC PHASE
+#   time-log pause TOPIC
+#   time-log resume TOPIC
+#   time-log end TOPIC
+#   time-log summary TOPIC PHASE
+#   time-log set-jira TOPIC VALUE
+#
+# File: <repo-root>/.superpowers/worklog/<TOPIC>.md
+# Line 1: "# time-log — topic: <TOPIC> — jira: <ISSUE-KEY|none|unknown>"
+# Event lines: "<event> <phase> <epoch-seconds>" (event: start|pause|resume|end)
+#
+# end/summary print:
+#   PHASE: <phase>
+#   ACTIVE_SECONDS: <n>
+#   ACTIVE_HUMAN: <Xh Ym>
+#   STARTED_ISO: <ISO 8601 UTC>
+#   JIRA: <issue-key|none|unknown>
+set -euo pipefail
+
+usage() {
+  echo "usage: time-log start TOPIC PHASE" >&2
+  echo "       time-log pause TOPIC" >&2
+  echo "       time-log resume TOPIC" >&2
+  echo "       time-log end TOPIC" >&2
+  echo "       time-log summary TOPIC PHASE" >&2
+  echo "       time-log set-jira TOPIC VALUE" >&2
+}
+
+worklog_file() {
+  local topic=$1
+  local root
+  root=$(git rev-parse --show-toplevel)
+  local dir="$root/.superpowers/worklog"
+  mkdir -p "$dir"
+  printf '*\n' > "$dir/.gitignore"
+  echo "$dir/$topic.md"
+}
+
+iso8601_utc() {
+  local epoch=$1 out
+  out=$(date -u -d "@$epoch" +'%Y-%m-%dT%H:%M:%S.000+0000' 2>/dev/null) && { printf '%s\n' "$out"; return; }
+  date -u -r "$epoch" +'%Y-%m-%dT%H:%M:%S.000+0000'
+}
+
+human_duration() {
+  local seconds=$1
+  local h=$(( seconds / 3600 ))
+  local m=$(( (seconds % 3600) / 60 ))
+  echo "${h}h ${m}m"
+}
+
+jira_field() {
+  local file=$1
+  sed -n '1p' "$file" | sed -n 's/.*— jira: \(.*\)$/\1/p'
+}
+
+open_phases() {
+  local file=$1
+  awk '
+    $1=="start" { open[$2]=1 }
+    $1=="end"   { delete open[$2] }
+    END { for (p in open) print p }
+  ' "$file"
+}
+
+phase_pause_state() {
+  local file=$1 phase=$2
+  awk -v p="$phase" '
+    $1=="pause" && $2==p  { state="paused" }
+    $1=="resume" && $2==p { state="running" }
+    END { print (state=="" ? "running" : state) }
+  ' "$file"
+}
+
+print_summary() {
+  local file=$1 phase=$2
+  local start_t end_t paused pause_t ev t active
+  start_t=$(awk -v p="$phase" '$1=="start" && $2==p {print $3; exit}' "$file")
+  end_t=$(awk -v p="$phase" '$1=="end" && $2==p {t=$3} END{print t+0}' "$file")
+  [ "$end_t" != "0" ] || end_t=$(date +%s)
+  paused=0
+  pause_t=0
+  while read -r ev _ t; do
+    case "$ev" in
+      pause) pause_t=$t ;;
+      resume) paused=$(( paused + (t - pause_t) )) ;;
+    esac
+  done < <(awk -v p="$phase" '($1=="pause"||$1=="resume") && $2==p' "$file")
+  active=$(( end_t - start_t - paused ))
+  echo "PHASE: $phase"
+  echo "ACTIVE_SECONDS: $active"
+  echo "ACTIVE_HUMAN: $(human_duration "$active")"
+  echo "STARTED_ISO: $(iso8601_utc "$start_t")"
+  echo "JIRA: $(jira_field "$file")"
+}
+
+if [ $# -lt 1 ]; then
+  usage
+  exit 2
+fi
+
+cmd=$1
+shift
+
+case "$cmd" in
+  start)
+    [ $# -eq 2 ] || { usage; exit 2; }
+    topic=$1; phase=$2
+    file=$(worklog_file "$topic")
+    [ -f "$file" ] || printf '# time-log — topic: %s — jira: unknown\n' "$topic" > "$file"
+    if open_phases "$file" | grep -qx "$phase"; then
+      echo "phase already open: $phase" >&2
+      exit 3
+    fi
+    echo "start $phase $(date +%s)" >> "$file"
+    ;;
+  pause)
+    [ $# -eq 1 ] || { usage; exit 2; }
+    topic=$1
+    file=$(worklog_file "$topic")
+    [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
+    phase=$(open_phases "$file" | head -n1)
+    [ -n "$phase" ] || { echo "no phase currently open for topic: $topic" >&2; exit 3; }
+    [ "$(phase_pause_state "$file" "$phase")" = "running" ] || { echo "phase already paused: $phase" >&2; exit 3; }
+    echo "pause $phase $(date +%s)" >> "$file"
+    ;;
+  resume)
+    [ $# -eq 1 ] || { usage; exit 2; }
+    topic=$1
+    file=$(worklog_file "$topic")
+    [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
+    phase=$(open_phases "$file" | head -n1)
+    [ -n "$phase" ] || { echo "no phase currently open for topic: $topic" >&2; exit 3; }
+    [ "$(phase_pause_state "$file" "$phase")" = "paused" ] || { echo "phase is not paused: $phase" >&2; exit 3; }
+    echo "resume $phase $(date +%s)" >> "$file"
+    ;;
+  end)
+    [ $# -eq 1 ] || { usage; exit 2; }
+    topic=$1
+    file=$(worklog_file "$topic")
+    [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
+    phase=$(open_phases "$file" | head -n1)
+    [ -n "$phase" ] || { echo "no phase currently open for topic: $topic" >&2; exit 3; }
+    [ "$(phase_pause_state "$file" "$phase")" = "running" ] || { echo "phase is paused, resume before ending: $phase" >&2; exit 3; }
+    echo "end $phase $(date +%s)" >> "$file"
+    print_summary "$file" "$phase"
+    ;;
+  summary)
+    [ $# -eq 2 ] || { usage; exit 2; }
+    topic=$1; phase=$2
+    file=$(worklog_file "$topic")
+    [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
+    grep -q "^start $phase " "$file" || { echo "no such phase: $phase" >&2; exit 3; }
+    print_summary "$file" "$phase"
+    ;;
+  set-jira)
+    [ $# -eq 2 ] || { usage; exit 2; }
+    topic=$1; value=$2
+    file=$(worklog_file "$topic")
+    [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
+    tmp=$(mktemp)
+    printf '# time-log — topic: %s — jira: %s\n' "$topic" "$value" > "$tmp"
+    tail -n +2 "$file" >> "$tmp"
+    mv "$tmp" "$file"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
