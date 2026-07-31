@@ -18,6 +18,16 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 **Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
 
+**Time tracking:** Derive `<topic>` from the spec filename you were given
+(the slug between the date and `-design`, e.g. `2026-08-03-my-feature`
+from `docs/superpowers/specs/2026-08-03-my-feature-design.md`), then run
+`scripts/time-log start <topic> writing-plans` before doing anything
+else. This skill has one real point where it waits on your human
+partner: the Subagent-Driven-vs-Inline-Execution offer in Execution
+Handoff. Run `scripts/time-log pause <topic>` immediately before making
+that offer, and `scripts/time-log resume <topic>` immediately after they
+answer.
+
 ## Scope Check
 
 If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
@@ -176,7 +186,27 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 ## Execution Handoff
 
-After saving the plan, offer execution choice:
+After saving the plan, run `scripts/time-log end <topic>` — this prints
+the phase's active duration and its `JIRA:` field.
+
+- If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
+  issue key (e.g. PROJ-123)." A "no" runs
+  `scripts/time-log set-jira <topic> none` and skips the rest of this
+  flow. An issue key runs `scripts/time-log set-jira <topic> <ISSUE-KEY>`
+  and continues below.
+- If `JIRA: none`: skip straight to the execution-choice offer below — no
+  summary prompt, no publish offer.
+- Otherwise (an issue key): show the active duration (`ACTIVE_HUMAN`) and
+  ask whether to log it to Jira. On yes: resolve `cloudId` via
+  `getAccessibleAtlassianResources` if not already resolved this
+  conversation (ask which site if more than one), then call
+  `addWorklogToJiraIssue` with that `cloudId`, `issueIdOrKey=<the issue>`,
+  `timeSpent=<ACTIVE_HUMAN>`, `started=<STARTED_ISO>`, and
+  `commentBody="Implementation planning: <topic>"`. Report the result. If
+  the Jira MCP connector isn't available, say so and continue.
+
+Run `scripts/time-log pause <topic>` (see Time tracking above), then
+offer execution choice:
 
 **"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Two execution options:**
 
