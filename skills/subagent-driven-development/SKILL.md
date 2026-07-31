@@ -178,7 +178,8 @@ the task's active duration and its `JIRA:` field.
   issue key (e.g. PROJ-123)." A "no" runs
   `scripts/time-log set-jira <topic> none` and skips the rest of this
   flow — for the rest of this plan (including the final review below),
-  no further prompt or publish offer.
+  no further prompt or publish offer. An issue key runs
+  `scripts/time-log set-jira <topic> <ISSUE-KEY>` and continues below.
 - If `JIRA: none`: skip straight to the ledger bookkeeping — no summary
   prompt, no publish offer.
 - Otherwise (an issue key): show the active duration (`ACTIVE_HUMAN`) and
