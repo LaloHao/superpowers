@@ -62,6 +62,17 @@ digraph brainstorming {
 
 ## The Process
 
+**Time tracking:** As soon as you have a working topic slug for this idea
+(the same short kebab-case slug you'll use for the spec filename,
+`YYYY-MM-DD-<topic>`), run `scripts/time-log start <topic> brainstorming`
+before doing anything else. From that point on, every time you are about
+to wait on your human partner — an `AskUserQuestion` call, the visual
+companion offer, a design-section approval, the spec review gate — run
+`scripts/time-log pause <topic>` immediately before, and
+`scripts/time-log resume <topic>` immediately after their reply arrives.
+This keeps the phase's reported time to your own active work, not their
+response time.
+
 **Understanding the idea:**
 
 - Check out the current project state first (files, docs, recent commits).
@@ -137,6 +148,30 @@ After the spec review loop passes, ask the user to review the written spec befor
 > "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan."
 
 Wait for the user's response. If they request changes, make them and re-run the spec review loop. Only proceed once the user approves.
+
+**Time tracking and Jira publish:**
+
+Before invoking writing-plans, run `scripts/time-log end <topic>` — this
+prints the phase's active duration and its `JIRA:` field.
+
+- If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
+  issue key (e.g. PROJ-123)." A "no" runs
+  `scripts/time-log set-jira <topic> none` and skips the rest of this
+  flow — for this topic, no further phase will ask again or offer to
+  publish. An issue key runs
+  `scripts/time-log set-jira <topic> <ISSUE-KEY>` and continues below.
+- If `JIRA: none`: skip straight to Implementation — no summary prompt,
+  no publish offer.
+- Otherwise (an issue key, from this phase or a prior `set-jira`): show
+  the active duration (`ACTIVE_HUMAN`) and ask whether to log it to Jira.
+  On yes: resolve `cloudId` via `getAccessibleAtlassianResources` if not
+  already resolved this conversation (ask which site if more than one),
+  then call `addWorklogToJiraIssue` with that `cloudId`,
+  `issueIdOrKey=<the issue>`, `timeSpent=<ACTIVE_HUMAN>`,
+  `started=<STARTED_ISO>`, and `commentBody="Design/brainstorming:
+  <topic>"`. Report the result. If the Jira MCP connector isn't
+  available, say so and continue — the summary you already showed is the
+  fallback.
 
 **Implementation:**
 
