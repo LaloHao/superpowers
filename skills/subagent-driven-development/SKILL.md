@@ -163,13 +163,20 @@ the rest, e.g. `2026-08-03-my-feature` from
 `docs/superpowers/plans/2026-08-03-my-feature.md` — the same slug
 brainstorming and writing-plans already used for this topic's spec and
 plan). Run `scripts/time-log start <topic> task-N` at the same point you
-record BASE for task N (Task Loop, step 1). This skill's "continuous
-execution" principle means routine dispatch/review/fix-loop activity is
-never a wait point — but relaying an implementer's question to your human
-partner, or a plan-vs-review conflict that needs their decision, are real
-waits: run `scripts/time-log pause <topic> task-N` immediately before
-either, and `scripts/time-log resume <topic> task-N` immediately after
-their reply.
+record BASE for task N (Task Loop, step 1). Only Task 1's `start` call
+needs to check for an already-known Jira key: if your human partner
+already mentioned a Jira issue key anywhere in the conversation before
+this plan's execution began (and no earlier phase captured it — this
+plan may be running standalone, without a prior brainstorming or
+writing-plans phase for this topic), run
+`scripts/time-log set-jira <topic> <ISSUE-KEY>` right after Task 1's
+`start` call. Every task after Task 1 will see it already resolved. This
+skill's "continuous execution" principle means routine
+dispatch/review/fix-loop activity is never a wait point — but relaying an
+implementer's question to your human partner, or a plan-vs-review
+conflict that needs their decision, are real waits: run
+`scripts/time-log pause <topic> task-N` immediately before either, and
+`scripts/time-log resume <topic> task-N` immediately after their reply.
 
 Because Wave Dispatch (below) can have several task-N phases open at
 once, always pass the phase explicitly (`task-N`) on every `pause`,
@@ -178,8 +185,16 @@ at most one phase is ever open at a time, which is true for
 brainstorming and writing-plans but not here.
 
 Run `scripts/time-log end <topic> task-N` when task N is marked complete
-in the ledger (Task Loop, step 5), before appending the ledger line.
-This prints the task's active duration and its `JIRA:` field.
+in the ledger (Task Loop, step 5), before appending the ledger line. If
+it fails (exit 3 — this task's phase was never started, e.g. the
+`time-log start` call at BASE-recording time was skipped), do not
+silently continue: tell your human partner "I wasn't able to track time automatically for this task" and offer to log an approximate duration manually
+(e.g. "2h 30m") to use in place of `ACTIVE_HUMAN` below (use "now" in
+place of `STARTED_ISO`); if they decline, skip the rest of this flow for
+this task and go straight to the ledger bookkeeping. Otherwise,
+`time-log end` printed the task's active duration and its `JIRA:` field
+— continue below. This same fallback applies to the final-review cycle's
+`time-log end <topic> final-review` call described below.
 
 - If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
   issue key (e.g. PROJ-123)." A "no" runs
