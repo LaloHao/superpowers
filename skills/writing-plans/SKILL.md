@@ -11,19 +11,24 @@ Write comprehensive implementation plans assuming the engineer has zero context 
 
 Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 
-**Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
+**Announce at start:** "I'm using the writing-plans skill to create the
+implementation plan." Immediately after announcing, derive `<topic>`
+from the spec filename you were given (the slug between the date and
+`-design`, e.g. `2026-08-03-my-feature` from
+`docs/superpowers/specs/2026-08-03-my-feature-design.md`) and run
+`scripts/time-log start <topic> writing-plans` — before doing anything
+else. If your human partner already mentioned a Jira issue key anywhere
+in the conversation before this point, run
+`scripts/time-log set-jira <topic> <ISSUE-KEY>` right now too — don't
+wait for the end-of-phase prompt to capture it.
 
 **Context:** If working in an isolated worktree, it should have been created via the `superpowers:using-git-worktrees` skill at execution time.
 
 **Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
 
-**Time tracking:** Derive `<topic>` from the spec filename you were given
-(the slug between the date and `-design`, e.g. `2026-08-03-my-feature`
-from `docs/superpowers/specs/2026-08-03-my-feature-design.md`), then run
-`scripts/time-log start <topic> writing-plans` before doing anything
-else. This skill has one real point where it waits on your human
-partner: the Subagent-Driven-vs-Inline-Execution offer in Execution
+**Time tracking:** This skill has one real point where it waits on your
+human partner: the Subagent-Driven-vs-Inline-Execution offer in Execution
 Handoff. Run `scripts/time-log pause <topic>` immediately before making
 that offer, and `scripts/time-log resume <topic>` immediately after they
 answer.
@@ -186,8 +191,15 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 ## Execution Handoff
 
-After saving the plan, run `scripts/time-log end <topic>` — this prints
-the phase's active duration and its `JIRA:` field.
+After saving the plan, run `scripts/time-log end <topic>`. If it fails
+(exit 3 — no phase was ever started), do not silently continue: tell
+your human partner "I wasn't able to track time automatically for this
+phase — want to log an approximate duration manually?" If yes, ask for
+the duration directly (e.g. "2h 30m") and use it in place of
+`ACTIVE_HUMAN` below (use "now" in place of `STARTED_ISO`); if no, skip
+the rest of this flow and go straight to offering execution choice below.
+Otherwise, `time-log end` printed the phase's active duration and its
+`JIRA:` field — continue below.
 
 - If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
   issue key (e.g. PROJ-123)." A "no" runs
