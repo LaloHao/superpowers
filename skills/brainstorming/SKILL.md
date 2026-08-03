@@ -21,7 +21,7 @@ Every project goes through this process. A todo list, a single-function utility,
 
 You MUST create a task for each of these items and complete them in order:
 
-1. **Explore project context** — check files, docs, recent commits
+1. **Start time tracking and explore project context** — run `scripts/time-log start <topic> brainstorming` as soon as you have a working topic slug, then check files, docs, recent commits
 2. **Offer the visual companion just-in-time** — NOT upfront. The first time a question would genuinely be clearer shown than described, offer it then (its own message); on approval its browser tab opens for you. If no visual question ever arises, never offer it. See the Visual Companion section below.
 3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 4. **Propose 2-3 approaches** — with trade-offs and your recommendation
@@ -62,13 +62,17 @@ digraph brainstorming {
 
 ## The Process
 
-**Time tracking:** As soon as you have a working topic slug for this idea
-(the same short kebab-case slug you'll use for the spec filename,
-`YYYY-MM-DD-<topic>`), run `scripts/time-log start <topic> brainstorming`
-before doing anything else. From that point on, every time you are about
-to wait on your human partner — an `AskUserQuestion` call, the visual
-companion offer, a design-section approval, the spec review gate — run
-`scripts/time-log pause <topic>` immediately before, and
+**Time tracking:** Checklist item 1 above starts timing
+(`scripts/time-log start <topic> brainstorming`) — the topic slug is the
+same short kebab-case slug you'll use for the spec filename,
+`YYYY-MM-DD-<topic>`. Immediately after that call, if your human partner
+already mentioned a Jira issue key anywhere in the conversation so far
+(e.g. in their opening request), run
+`scripts/time-log set-jira <topic> <ISSUE-KEY>` right now — don't wait
+for the end-of-phase prompt to capture it. From that point on, every time
+you are about to wait on your human partner — an `AskUserQuestion` call,
+the visual companion offer, a design-section approval, the spec review
+gate — run `scripts/time-log pause <topic>` immediately before, and
 `scripts/time-log resume <topic>` immediately after their reply arrives.
 This keeps the phase's reported time to your own active work, not their
 response time.
@@ -151,8 +155,16 @@ Wait for the user's response. If they request changes, make them and re-run the 
 
 **Time tracking and Jira publish:**
 
-Before invoking writing-plans, run `scripts/time-log end <topic>` — this
-prints the phase's active duration and its `JIRA:` field.
+Before invoking writing-plans, run `scripts/time-log end <topic>`. If it
+fails (exit 3 — no phase was ever started, e.g. checklist item 1's
+`time-log start` call was skipped), do not silently continue: tell your
+human partner "I wasn't able to track time automatically for this phase
+— want to log an approximate duration manually?" If yes, ask for the
+duration directly (e.g. "2h 30m") and use it in place of `ACTIVE_HUMAN`
+below (use "now" in place of `STARTED_ISO`); if no, skip the rest of this
+flow and go straight to Implementation. Otherwise, `time-log end`
+printed the phase's active duration and its `JIRA:` field — continue
+below.
 
 - If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
   issue key (e.g. PROJ-123)." A "no" runs
