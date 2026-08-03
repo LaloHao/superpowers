@@ -27,7 +27,11 @@ assert_contains() {
 echo "=== brainstorming worklog timing test ==="
 echo ""
 
+assert_contains "Start time tracking and explore project context" "Checklist item 1 starts time tracking, not a loose paragraph"
 assert_contains "time-log start" "Starts the phase timer"
+assert_contains "already mentioned a Jira issue key" "Captures an already-given Jira key immediately after start"
+assert_contains "wasn't able to track time automatically" "Tells the human when automatic tracking failed"
+assert_contains "log an approximate duration manually" "Offers a manual-duration fallback"
 assert_contains "time-log pause" "Pauses the timer around user waits"
 assert_contains "time-log resume" "Resumes the timer after user responds"
 assert_contains "time-log end" "Ends the phase timer"
