@@ -209,7 +209,7 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 After saving the plan: if tracking was disabled for this topic, skip
 straight to offering execution choice below — no `time-log` calls at
-all. Otherwise, run `scripts/time-log pause <topic> now` (see Time
+all. Otherwise, run `scripts/time-log pause <topic>` now (see Time
 tracking above), then offer execution choice:
 
 **"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Two execution options:**

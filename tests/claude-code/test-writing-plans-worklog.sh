@@ -60,7 +60,7 @@ assert_contains "addWorklogToJiraIssue" "References the Jira worklog MCP tool"
 assert_not_contains "already mentioned a Jira issue key" "Old early-capture wording is gone"
 assert_not_contains "Is this Jira-tracked work?" "Old per-phase-end ask is gone"
 
-pause_line=$(grep -n "time-log pause <topic> now" "$SKILL" | head -1 | cut -d: -f1)
+pause_line=$(grep -n 'run `scripts/time-log pause <topic>` now' "$SKILL" | head -1 | cut -d: -f1)
 end_line=$(grep -n 'run `scripts/time-log end <topic>`. If it fails' "$SKILL" | head -1 | cut -d: -f1)
 if [[ -n "$pause_line" && -n "$end_line" && "$pause_line" -lt "$end_line" ]]; then
     echo "  [PASS] pause happens before the offer, end happens after (fixes prior ordering bug)"
