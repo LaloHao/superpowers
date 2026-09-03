@@ -10,7 +10,15 @@
 #   time-log resume TOPIC [PHASE]
 #   time-log end TOPIC [PHASE]
 #   time-log summary TOPIC PHASE
+#   time-log status TOPIC
 #   time-log set-jira TOPIC VALUE
+#
+# status prints "JIRA: <value>" for TOPIC's header field, or
+# "JIRA: unknown" if TOPIC has no worklog file yet (without creating
+# one) — the read-only check the three skills use before deciding
+# whether to ask about tracking. set-jira creates TOPIC's worklog file
+# (with a default "jira: unknown" header) if it doesn't exist yet,
+# instead of erroring.
 #
 # PHASE is optional on pause/resume/end when exactly one phase is
 # currently open for TOPIC — it is derived automatically. If more than
@@ -37,6 +45,7 @@ usage() {
   echo "       time-log resume TOPIC [PHASE]" >&2
   echo "       time-log end TOPIC [PHASE]" >&2
   echo "       time-log summary TOPIC PHASE" >&2
+  echo "       time-log status TOPIC" >&2
   echo "       time-log set-jira TOPIC VALUE" >&2
 }
 
@@ -199,11 +208,21 @@ case "$cmd" in
     grep -q "^start $phase " "$file" || { echo "no such phase: $phase" >&2; exit 3; }
     print_summary "$file" "$phase"
     ;;
+  status)
+    [ $# -eq 1 ] || { usage; exit 2; }
+    topic=$1
+    file=$(worklog_file "$topic")
+    if [ -f "$file" ]; then
+      echo "JIRA: $(jira_field "$file")"
+    else
+      echo "JIRA: unknown"
+    fi
+    ;;
   set-jira)
     [ $# -eq 2 ] || { usage; exit 2; }
     topic=$1; value=$2
     file=$(worklog_file "$topic")
-    [ -f "$file" ] || { echo "no worklog for topic: $topic" >&2; exit 3; }
+    [ -f "$file" ] || printf '# time-log — topic: %s — jira: unknown\n' "$topic" > "$file"
     tmp=$(mktemp)
     printf '# time-log — topic: %s — jira: %s\n' "$topic" "$value" > "$tmp"
     tail -n +2 "$file" >> "$tmp"

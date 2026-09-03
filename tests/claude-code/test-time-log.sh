@@ -184,9 +184,47 @@ EOF
         echo "    got JIRA=$jira_field"
     fi
 
+    # --- status subcommand ---
     rc=0
-    (cd "$repo" && "$TIME_LOG" set-jira topic-does-not-exist PROJ-999 >/dev/null 2>&1) || rc=$?
-    [[ "$rc" -eq 3 ]] && pass "set-jira on a nonexistent topic errors with exit 3" || { fail "set-jira on a nonexistent topic errors with exit 3"; echo "    exit: $rc"; }
+    (cd "$repo" && "$TIME_LOG" status >/dev/null 2>&1) || rc=$?
+    [[ "$rc" -eq 2 ]] && pass "status with missing TOPIC errors with exit 2" || { fail "status with missing TOPIC errors with exit 2"; echo "    exit: $rc"; }
+
+    local status_out
+    status_out="$(cd "$repo" && "$TIME_LOG" status topic-never-seen)"
+    if [[ "$status_out" == "JIRA: unknown" ]]; then
+        pass "status on a nonexistent topic prints JIRA: unknown"
+    else
+        fail "status on a nonexistent topic prints JIRA: unknown"
+        echo "    got: $status_out"
+    fi
+    if [[ ! -f "$repo/.superpowers/worklog/topic-never-seen.md" ]]; then
+        pass "status on a nonexistent topic does not create a worklog file"
+    else
+        fail "status on a nonexistent topic does not create a worklog file"
+    fi
+
+    status_out="$(cd "$repo" && "$TIME_LOG" status topic-math)"
+    if [[ "$status_out" == "JIRA: PROJ-123" ]]; then
+        pass "status on an existing topic prints its resolved jira field"
+    else
+        fail "status on an existing topic prints its resolved jira field"
+        echo "    got: $status_out"
+    fi
+
+    # --- set-jira creates the worklog file if it doesn't exist yet ---
+    (cd "$repo" && "$TIME_LOG" set-jira topic-fresh disabled >/dev/null)
+    if [[ -f "$repo/.superpowers/worklog/topic-fresh.md" ]]; then
+        pass "set-jira creates the worklog file when it doesn't exist yet"
+    else
+        fail "set-jira creates the worklog file when it doesn't exist yet"
+    fi
+    status_out="$(cd "$repo" && "$TIME_LOG" status topic-fresh)"
+    if [[ "$status_out" == "JIRA: disabled" ]]; then
+        pass "set-jira on a fresh topic sets the given value (e.g. disabled)"
+    else
+        fail "set-jira on a fresh topic sets the given value (e.g. disabled)"
+        echo "    got: $status_out"
+    fi
 
     # --- multiple open phases: PHASE arg required, and targets only the named phase ---
     (cd "$repo" && "$TIME_LOG" start topic-x task-a >/dev/null)
