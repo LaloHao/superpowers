@@ -16,22 +16,38 @@ implementation plan." Immediately after announcing, derive `<topic>`
 from the spec filename you were given (the slug between the date and
 `-design`, e.g. `2026-08-03-my-feature` from
 `docs/superpowers/specs/2026-08-03-my-feature-design.md`) and run
-`scripts/time-log start <topic> writing-plans` — before doing anything
-else. If your human partner already mentioned a Jira issue key anywhere
-in the conversation before this point, run
-`scripts/time-log set-jira <topic> <ISSUE-KEY>` right now too — don't
-wait for the end-of-phase prompt to capture it.
+`scripts/time-log status <topic>` — before doing anything else. See Time
+tracking below for what to do with the result.
 
 **Context:** If working in an isolated worktree, it should have been created via the `superpowers:using-git-worktrees` skill at execution time.
 
 **Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
 
-**Time tracking:** This skill has one real point where it waits on your
-human partner: the Subagent-Driven-vs-Inline-Execution offer in Execution
-Handoff. Run `scripts/time-log pause <topic>` immediately before making
-that offer, and `scripts/time-log resume <topic>` immediately after they
-answer.
+**Time tracking:** The `status` call above resolves this topic's
+tracking state before any other work begins.
+
+- If it printed `JIRA: unknown` (first time this topic has been seen):
+  ask "Do you want time tracked for this task?" A "no" runs
+  `scripts/time-log set-jira <topic> disabled` — for the rest of this
+  topic, in every phase of every skill, make zero `time-log` calls and
+  skip this entire flow, with no further asking. A "yes" asks
+  "What Jira ticket does this correspond to? (or say it doesn't apply)"
+  — a ticket key runs `scripts/time-log set-jira <topic> <ISSUE-KEY>`;
+  no ticket runs `scripts/time-log set-jira <topic> none`. Only if the result
+  isn't `disabled`, now run `scripts/time-log start <topic>
+  writing-plans`.
+- If it printed `JIRA: disabled`: make no further `time-log` calls this
+  phase at all.
+- Otherwise (`JIRA: none` or an issue key, resolved by an earlier phase
+  or just above): run `scripts/time-log start <topic> writing-plans` and
+  continue tracking below.
+
+Once tracking is active, this skill has one real point where it waits on
+your human partner: the Subagent-Driven-vs-Inline-Execution offer in
+Execution Handoff. Run `scripts/time-log pause <topic>` immediately
+before making that offer, and `scripts/time-log resume <topic>`
+immediately after they answer.
 
 ## Scope Check
 
@@ -191,34 +207,10 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 ## Execution Handoff
 
-After saving the plan, run `scripts/time-log end <topic>`. If it fails
-(exit 3 — no phase was ever started), do not silently continue: tell
-your human partner "I wasn't able to track time automatically for this
-phase — want to log an approximate duration manually?" If yes, ask for
-the duration directly (e.g. "2h 30m") and use it in place of
-`ACTIVE_HUMAN` below (use "now" in place of `STARTED_ISO`); if no, skip
-the rest of this flow and go straight to offering execution choice below.
-Otherwise, `time-log end` printed the phase's active duration and its
-`JIRA:` field — continue below.
-
-- If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
-  issue key (e.g. PROJ-123)." A "no" runs
-  `scripts/time-log set-jira <topic> none` and skips the rest of this
-  flow. An issue key runs `scripts/time-log set-jira <topic> <ISSUE-KEY>`
-  and continues below.
-- If `JIRA: none`: skip straight to the execution-choice offer below — no
-  summary prompt, no publish offer.
-- Otherwise (an issue key): show the active duration (`ACTIVE_HUMAN`) and
-  ask whether to log it to Jira. On yes: resolve `cloudId` via
-  `getAccessibleAtlassianResources` if not already resolved this
-  conversation (ask which site if more than one), then call
-  `addWorklogToJiraIssue` with that `cloudId`, `issueIdOrKey=<the issue>`,
-  `timeSpent=<ACTIVE_HUMAN>`, `started=<STARTED_ISO>`, and
-  `commentBody="Implementation planning: <topic>"`. Report the result. If
-  the Jira MCP connector isn't available, say so and continue.
-
-Run `scripts/time-log pause <topic>` (see Time tracking above), then
-offer execution choice:
+After saving the plan: if tracking was disabled for this topic, skip
+straight to offering execution choice below — no `time-log` calls at
+all. Otherwise, run `scripts/time-log pause <topic> now` (see Time
+tracking above), then offer execution choice:
 
 **"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Two execution options:**
 
@@ -227,6 +219,29 @@ offer execution choice:
 **2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
 
 **Which approach?"**
+
+If tracking is active, run `scripts/time-log resume <topic>` now that
+they've answered, then run `scripts/time-log end <topic>`. If it fails
+(exit 3 — no phase was ever started), do not silently continue: tell
+your human partner "I wasn't able to track time automatically for this
+phase — want to log an approximate duration manually?" If yes, ask for
+the duration directly (e.g. "2h 30m") and use it in place of
+`ACTIVE_HUMAN` below (use "now" in place of `STARTED_ISO`); if no, skip
+the rest of this flow. Otherwise, `time-log end` printed the phase's
+active duration and its `JIRA:` field — continue below.
+
+- If `JIRA: none`: show the active duration (`ACTIVE_HUMAN`) to your
+  human partner — nothing to publish.
+- Otherwise (an issue key): resolve `cloudId` via
+  `getAccessibleAtlassianResources` if not already resolved this
+  conversation (ask which site if more than one), then call
+  `addWorklogToJiraIssue` with that `cloudId`, `issueIdOrKey=<the issue>`,
+  `timeSpent=<ACTIVE_HUMAN>`, `started=<STARTED_ISO>`, and
+  `commentBody="Implementation planning: <topic>"`. Report the result —
+  no confirmation prompt, the upfront answer already was the consent. If
+  the Jira MCP connector isn't available, say so and continue.
+
+Then act on their choice:
 
 **If Subagent-Driven chosen:**
 - **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
