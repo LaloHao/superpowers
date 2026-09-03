@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Regression check: subagent-driven-development times each task and the
-# final review (excluding time spent waiting on the human) and offers to
-# publish each to Jira.
+# Regression check: subagent-driven-development resolves time tracking
+# once per plan via a single upfront question (before Task 1 dispatch),
+# then every task and the final review behave automatically: no
+# tracking, tracked only, or tracked with automatic Jira publish.
 
 set -euo pipefail
 
@@ -25,19 +26,38 @@ assert_contains() {
     fi
 }
 
+assert_not_contains() {
+    local pattern="$1"
+    local label="$2"
+
+    if grep -Fq "$pattern" "$SKILL"; then
+        echo "  [FAIL] $label"
+        echo "    Did not expect to find: $pattern"
+        echo "    In file: $SKILL"
+        failures=$((failures + 1))
+    else
+        echo "  [PASS] $label"
+    fi
+}
+
 echo "=== subagent-driven-development worklog timing test ==="
 echo ""
 
-assert_contains "time-log start" "Starts a phase timer per task"
-assert_contains "already mentioned a Jira issue key" "Falls back to Task 1's start point for an already-given Jira key"
+assert_contains "time-log status" "Checks resolved tracking state before Task 1 dispatch"
+assert_contains "Do you want time tracked" "Asks the single upfront tracking question"
+assert_contains "set-jira <topic> disabled" "Persists a decline as disabled"
+assert_contains "What Jira ticket does this correspond to" "Asks for the ticket only after tracking is wanted"
+assert_contains 'zero `time-log` calls' "Documents zero instrumentation when disabled"
+assert_contains "no confirmation prompt" "Auto-publishes without asking each phase"
 assert_contains "wasn't able to track time automatically" "Tells the human when automatic tracking failed"
 assert_contains "log an approximate duration manually" "Offers a manual-duration fallback"
 assert_contains "time-log pause" "Pauses around real human-wait points"
 assert_contains "time-log resume" "Resumes after the human responds"
 assert_contains "time-log end" "Ends the phase timer"
 assert_contains "final-review" "Times the final-review phase separately"
-assert_contains "set-jira" "References set-jira for the one-time issue ask"
 assert_contains "addWorklogToJiraIssue" "References the Jira worklog MCP tool"
+assert_not_contains "already mentioned a Jira issue key" "Old early-capture wording is gone"
+assert_not_contains "Is this Jira-tracked work?" "Old per-phase-end ask is gone"
 
 echo ""
 if [[ "$failures" -ne 0 ]]; then

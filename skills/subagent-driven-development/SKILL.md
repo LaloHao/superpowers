@@ -162,15 +162,32 @@ Derive `<topic>` from the plan filename (the slug between the date and
 the rest, e.g. `2026-08-03-my-feature` from
 `docs/superpowers/plans/2026-08-03-my-feature.md` — the same slug
 brainstorming and writing-plans already used for this topic's spec and
-plan). Run `scripts/time-log start <topic> task-N` at the same point you
-record BASE for task N (Task Loop, step 1). Only Task 1's `start` call
-needs to check for an already-known Jira key: if your human partner
-already mentioned a Jira issue key anywhere in the conversation before
-this plan's execution began (and no earlier phase captured it — this
-plan may be running standalone, without a prior brainstorming or
-writing-plans phase for this topic), run
-`scripts/time-log set-jira <topic> <ISSUE-KEY>` right after Task 1's
-`start` call. Every task after Task 1 will see it already resolved. This
+plan). Before dispatching Task 1's implementer, run
+`scripts/time-log status <topic>`:
+
+- If it prints `JIRA: unknown` (this plan may be running standalone,
+  without a prior brainstorming or writing-plans phase for this topic —
+  or an earlier phase never resolved it): ask "Do you want time tracked
+  for this plan's execution?" A "no" runs
+  `scripts/time-log set-jira <topic> disabled` — for the rest of this
+  plan (every task and the final review), make zero `time-log` calls and
+  skip this entire section silently, with no further asking. A "yes"
+  asks "What Jira ticket does this correspond to? (or say it doesn't
+  apply)" — a ticket key runs
+  `scripts/time-log set-jira <topic> <ISSUE-KEY>`; no ticket runs
+  `scripts/time-log set-jira <topic> none`.
+- If it prints `JIRA: disabled`: make no `time-log` calls anywhere in
+  this plan's execution — proceed exactly as if this feature didn't
+  exist.
+- Otherwise (`JIRA: none` or an issue key, resolved here or by an
+  earlier phase): tracking is active for this plan. Continue below.
+
+Only Task 1 needs to do this resolution — every task after it (and the
+final-review cycle) sees the state already resolved via `status` and
+skips straight to whichever branch applies, with no further asking.
+
+If tracking is active, run `scripts/time-log start <topic> task-N` at
+the same point you record BASE for task N (Task Loop, step 1). This
 skill's "continuous execution" principle means routine
 dispatch/review/fix-loop activity is never a wait point — but relaying an
 implementer's question to your human partner, or a plan-vs-review
@@ -196,32 +213,27 @@ this task and go straight to the ledger bookkeeping. Otherwise,
 — continue below. This same fallback applies to the final-review cycle's
 `time-log end <topic> final-review` call described below.
 
-- If `JIRA: unknown`: ask "Is this Jira-tracked work? If so, give me the
-  issue key (e.g. PROJ-123)." A "no" runs
-  `scripts/time-log set-jira <topic> none` and skips the rest of this
-  flow — for the rest of this plan (including the final review below),
-  no further prompt or publish offer. An issue key runs
-  `scripts/time-log set-jira <topic> <ISSUE-KEY>` and continues below.
-- If `JIRA: none`: skip straight to the ledger bookkeeping — no summary
-  prompt, no publish offer.
-- Otherwise (an issue key): show the active duration (`ACTIVE_HUMAN`) and
-  ask whether to log it to Jira. On yes: resolve `cloudId` via
+- If `JIRA: none`: show the active duration (`ACTIVE_HUMAN`) to your
+  human partner, then go straight to the ledger bookkeeping — nothing to
+  publish.
+- Otherwise (an issue key): resolve `cloudId` via
   `getAccessibleAtlassianResources` if not already resolved this
   conversation (ask which site if more than one), then call
   `addWorklogToJiraIssue` with that `cloudId`, `issueIdOrKey=<the
   issue>`, `timeSpent=<ACTIVE_HUMAN>`, `started=<STARTED_ISO>`, and
-  `commentBody="Task N: <task title>"`. Report the result. If the Jira
-  MCP connector isn't available, say so and continue.
+  `commentBody="Task N: <task title>"`. Report the result — no confirmation prompt,
+  the upfront answer already was the consent. If the Jira MCP connector
+  isn't available, say so and continue.
 
-Run the same `start`/pause-resume/`end`/publish cycle once more around
-the whole-branch final review, using phase `final-review`:
-`scripts/time-log start <topic> final-review` right before dispatching
-the final code reviewer; `scripts/time-log pause <topic> final-review`
-and `scripts/time-log resume <topic> final-review` around any wait on
-your human partner; `scripts/time-log end <topic> final-review` right
-after the final review is clean and any fixes are merged (before
-deleting the plan's workspace), with `commentBody="Final review:
-<topic>"`.
+If tracking is active, run the same `start`/pause-resume/`end`/publish
+cycle once more around the whole-branch final review, using phase
+`final-review`: `scripts/time-log start <topic> final-review` right
+before dispatching the final code reviewer; `scripts/time-log pause
+<topic> final-review` and `scripts/time-log resume <topic>
+final-review` around any wait on your human partner; `scripts/time-log
+end <topic> final-review` right after the final review is clean and any
+fixes are merged (before deleting the plan's workspace), with
+`commentBody="Final review: <topic>"`.
 
 ## Wave Dispatch
 
